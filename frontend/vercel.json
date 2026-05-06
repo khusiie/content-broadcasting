@@ -3,7 +3,7 @@
     {
       "source": "/api/:path*",
       "destination": "https://content-broadcasting-dun.vercel.app/api/:path*"
-    },
+    },  
     {
       "source": "/uploads/:path*",
       "destination": "https://content-broadcasting-dun.vercel.app/uploads/:path*"
