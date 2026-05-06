@@ -1,0 +1,26 @@
+# Dependencies
+backend/node_modules/
+frontend/node_modules/
+
+# Environment variables
+backend/.env
+
+# Uploads directory (local storage)
+backend/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Build output
+frontend/dist/
+
+# Scratch/temp files
+backend/scratch/

@@ -1,0 +1,178 @@
+================================================================================
+                    FRONTEND NOTES — Content Broadcasting System
+================================================================================
+
+1. PROJECT STRUCTURE
+================================================================================
+
+src/
+├── components/              # Reusable UI components
+│   ├── ui/                  # Generic UI primitives
+│   │   ├── Button.jsx       # Button with variants (primary, secondary, danger, success, ghost)
+│   │   ├── Modal.jsx        # Modal with backdrop close, ESC support, body scroll lock
+│   │   ├── Card.jsx         # Glass-card wrapper with optional hover effect
+│   │   ├── StatusBadge.jsx  # Status pill (pending, approved, rejected, scheduled, active, expired)
+│   │   ├── FormField.jsx    # Label + input + error + hint wrapper
+│   │   ├── Toast.jsx        # Toast notification container (success, error, info, warning)
+│   │   ├── SkeletonLoader.jsx # Shimmer loaders for cards, rows, and stats
+│   │   └── EmptyState.jsx   # Empty state with icon, message, and optional CTA
+│   ├── Navbar.jsx           # Top navbar + collapsible sidebar with role-based links
+│   ├── DashboardStats.jsx   # 4-card stats grid (Total, Pending, Approved, Rejected)
+│   ├── ContentCard.jsx      # Content list item with thumbnail, info, status badges
+│   └── FilePreview.jsx      # File preview modal with image, metadata, and status
+├── pages/                   # Route-specific page components
+│   ├── auth/
+│   │   └── LoginPage.jsx    # Split-screen login/register with role-based illustration
+│   ├── teacher/
+│   │   ├── TeacherDashboard.jsx  # Dashboard with stats + recent uploads
+│   │   ├── UploadContent.jsx     # Upload form with RHF + Zod + file preview
+│   │   └── MyContent.jsx         # Paginated content list with scheduling badges
+│   ├── principal/
+│   │   ├── PrincipalDashboard.jsx # Dashboard with stats + quick action cards
+│   │   ├── PendingApprovals.jsx   # Approval workflow with reject modal
+│   │   └── AllContent.jsx         # Filterable + searchable content list
+│   └── public/
+│       └── LiveDisplay.jsx        # Public broadcast page (no auth required)
+├── layouts/
+│   └── DashboardLayout.jsx  # Shared layout wrapper (navbar + sidebar + content area)
+├── services/                # API service layer (all API calls go through here)
+│   ├── auth.service.js      # login, register, logout, getCurrentUser
+│   ├── content.service.js   # uploadContent, getMyContent, getLiveContent
+│   └── approval.service.js  # getPending, getAll, approve, reject
+├── hooks/                   # Custom React hooks
+│   ├── useAuth.js           # Access auth context (user, login, logout, role checks)
+│   ├── useToast.js          # Access toast notifications (success, error, info, warning)
+│   ├── useContent.js        # Fetch/upload teacher content with loading/error state
+│   └── useApproval.js       # Fetch/approve/reject with loading/error state
+├── context/                 # React Context providers
+│   ├── AuthContext.jsx      # Centralized auth state + login/register/logout actions
+│   └── ToastContext.jsx     # Toast queue management with auto-dismiss
+├── utils/
+│   ├── api.js               # Axios instance with base URL and auth interceptor
+│   ├── validators.js        # Zod schemas for all forms + file validation
+│   └── helpers.js           # Utilities (date formatting, scheduling status, stats computation)
+└── App.jsx                  # Route configuration with protected route guards
+
+
+2. AUTHENTICATION FLOW
+================================================================================
+
+- User visits / (login page).
+- If already authenticated, PublicOnlyRoute redirects to dashboard.
+- User fills login form → validated by Zod schema → sent via authService.login().
+- authService stores JWT token and user object in localStorage.
+- AuthContext updates with user data.
+- ProtectedRoute checks AuthContext for authentication and role.
+- Token is automatically attached to all API calls via Axios request interceptor.
+- Logout clears localStorage and resets AuthContext state.
+- Unauthenticated access to protected routes → redirected to /.
+
+
+3. ROLE-BASED ROUTING
+================================================================================
+
+  Teacher:
+    /teacher           → TeacherDashboard (stats + recent uploads)
+    /teacher/upload    → UploadContent (form with validation)
+    /teacher/content   → MyContent (paginated list)
+
+  Principal:
+    /principal         → PrincipalDashboard (stats + quick actions)
+    /principal/pending → PendingApprovals (approve/reject workflow)
+    /principal/content → AllContent (search + filter + paginate)
+
+  Public (no auth):
+    /live/:teacherId   → LiveDisplay (active broadcasts)
+
+  Guards:
+    - ProtectedRoute checks auth + role
+    - PublicOnlyRoute redirects logged-in users to their dashboard
+    - Loading state shown during auth check
+    - Fallback: all unknown routes redirect to /
+
+
+4. API INTEGRATION APPROACH
+================================================================================
+
+  Architecture:
+    Components → Hooks → Services → API (Axios)
+
+  Key Principles:
+    - Components NEVER call api directly.
+    - All API calls go through service files (services/*.service.js).
+    - Custom hooks (hooks/*) wrap services with React state (loading, error, data).
+    - Components consume hooks for data and actions.
+
+  Service Layer:
+    - auth.service.js:    login(), register(), logout(), getCurrentUser(), getToken()
+    - content.service.js: uploadContent(formData), getMyContent(), getLiveContent(teacherId)
+    - approval.service.js: getPending(), getAll(params), approve(id), reject(id, reason)
+
+  Error Handling:
+    - Services throw on failure; hooks catch and set error state.
+    - Components display errors via toast notifications (not alert()).
+    - Axios interceptor attaches auth token automatically.
+
+  Replaceability:
+    - To swap to a real backend, only service files need updating.
+    - No component changes required.
+
+
+5. STATE MANAGEMENT APPROACH
+================================================================================
+
+  Strategy: React Context + Custom Hooks (no external state library)
+
+  AuthContext:
+    - Stores: user, loading, isAuthenticated, isTeacher, isPrincipal
+    - Actions: login, register, logout
+    - Consumed via useAuth() hook
+
+  ToastContext:
+    - Stores: toast queue (array of { id, message, type })
+    - Actions: success(), error(), info(), warning(), removeToast()
+    - Auto-dismiss after configurable duration
+    - Consumed via useToast() hook
+
+  Local State:
+    - Page-specific state (filters, pagination, modals) kept in component useState
+    - Computed values use useMemo for performance
+    - Event handlers wrapped in useCallback to prevent unnecessary re-renders
+
+  Performance:
+    - React.memo on all reusable components
+    - useMemo on filtered lists, stats computation, pagination slicing
+    - useCallback on all handler functions
+    - Lazy image loading with loading="lazy"
+
+
+6. FORM HANDLING & VALIDATION
+================================================================================
+
+  Library: React Hook Form + Zod (via @hookform/resolvers)
+
+  Schemas (utils/validators.js):
+    - loginSchema: email (required, valid format), password (required)
+    - registerSchema: name (required, min 2), email, password (min 6), role (enum)
+    - uploadContentSchema: title, subject, start_time, end_time (with end > start refinement), rotation_duration
+    - File validation: type (JPG/PNG/GIF only), size (max 10MB)
+
+  Features:
+    - Real-time validation errors displayed per field
+    - File preview before upload via URL.createObjectURL()
+    - File size and type validation on selection (before upload)
+    - End time must be after start time (Zod .refine())
+
+
+7. ASSUMPTIONS
+================================================================================
+
+  - JWT tokens do not expire during a session (no refresh token flow).
+  - The backend API is running at http://localhost:5000/api.
+  - File uploads are limited to JPG, PNG, and GIF under 10MB.
+  - Rotation duration is specified in minutes.
+  - The "live" endpoint returns an array of currently active content items.
+  - Scheduling status (Scheduled/Active/Expired) is computed client-side from timestamps.
+  - Only one principal and multiple teachers can exist in the system.
+  - The public /live/:teacherId page requires no authentication.
+  - Content status values: "uploaded", "pending", "approved", "rejected".
