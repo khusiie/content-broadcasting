@@ -19,16 +19,13 @@ exports.uploadContent = async (req, res) => {
         contentType: file.mimetype,
       });
     if (storageError) {
-      console.log('Storage Error Object:', storageError);
-      if (storageError.message === 'Bucket not found') {
-        console.warn('Supabase Bucket not found, falling back to local storage...');
-        const localPath = path.join(__dirname, '../../uploads', fileName);
-        fs.writeFileSync(localPath, file.buffer);
-        publicUrl = `http://localhost:5000/uploads/${fileName}`;
-      } else {
-        throw storageError;
-      }
+      console.error('Supabase Storage Error:', storageError);
+      return res.status(500).json({ 
+        error: 'Storage configuration error. Please ensure the "content-files" bucket exists and is public in Supabase.',
+        details: storageError.message 
+      });
     } else {
+
       const { data: { publicUrl: supabaseUrl } } = supabase.storage
         .from('content-files')
         .getPublicUrl(fileName);
