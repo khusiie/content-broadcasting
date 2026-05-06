@@ -7,7 +7,10 @@ const contentRoutes = require('./routes/content.routes');
 const approvalRoutes = require('./routes/approval.routes');
 const liveRoutes = require('./routes/live.routes');
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 app.use('/uploads', express.static('uploads'));
